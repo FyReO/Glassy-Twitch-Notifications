@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<style>
+  :root {
+    --bg: #15151c;
+    --panel: rgba(255, 255, 255, 0.05);
+    --line: rgba(255, 255, 255, 0.10);
+    --text: rgba(255, 255, 255, 0.94);
+    --dim: rgba(255, 255, 255, 0.55);
+    --accent: #9146ff;
+    --font: "SF Pro Display", -apple-system, "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+  body { padding: 26px 28px 32px; }
+
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .lead { color: var(--dim); font-size: 14px; margin-bottom: 22px; }
+  h2 { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; margin-bottom: 10px; }
+
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row label.name { font-size: 14px; }
+  .row .hint { display: block; font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .ctl { display: flex; align-items: center; gap: 10px; }
+  .val { min-width: 48px; text-align: right; font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+  /* ---- position picker ---- */
+  .screen {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    aspect-ratio: 16 / 9;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 14px;
+    background: linear-gradient(160deg, #23233a, #101018);
+    border: 1px solid var(--line);
+    margin-bottom: 6px;
+  }
+  .zone {
+    display: flex;
+    padding: 8px;
+    border: 1.5px dashed rgba(255,255,255,0.07);
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .zone:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.18); }
+  .zone:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .zone[data-pos^="top"]    { align-items: flex-start; }
+  .zone[data-pos^="bottom"] { align-items: flex-end; }
+  .zone[data-pos$="left"]   { justify-content: flex-start; }
+  .zone[data-pos$="center"] { justify-content: center; }
+  .zone[data-pos$="right"]  { justify-content: flex-end; }
+  .mini {
+    width: 62%;
+    max-width: 96px;
+    height: 16px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+    opacity: 0;
+    transition: opacity .15s, background .15s;
+  }
+  .zone:hover .mini { opacity: 1; }
+  .zone.on { background: rgba(145,70,255,0.14); border-color: rgba(145,70,255,0.55); }
+  .zone.on .mini { opacity: 1; background: linear-gradient(135deg, #b583ff, #7c3aed); box-shadow: 0 2px 10px rgba(145,70,255,0.55); }
+  .screen-note { font-size: 12px; color: var(--dim); text-align: center; margin-bottom: 8px; }
+
+  /* ---- controls ---- */
+  .seg { display: flex; padding: 3px; gap: 2px; border-radius: 11px; background: rgba(255,255,255,0.07); }
+  .seg button {
+    flex: 1;
+    padding: 7px 4px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--dim);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 550;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .seg button:hover { color: var(--text); }
+  .seg button.on { background: rgba(255,255,255,0.16); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+  .seg button:focus-visible { outline: 2px solid var(--accent); }
+
+  select, input[type="text"] {
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 13px;
+  }
+  select:disabled { opacity: .4; }
+  select option { background: #1d1d26; }
+  input[type="text"] { width: 230px; }
+  input[type="text"]:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type="range"] { width: 170px; accent-color: var(--accent); }
+  input[type="range"]:disabled { opacity: .4; }
+
+  .switch { position: relative; width: 42px; height: 26px; flex: none; }
+  .switch input { opacity: 0; position: absolute; inset: 0; margin: 0; cursor: pointer; z-index: 1; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: rgba(255,255,255,0.18); transition: background .2s; }
+  .switch span::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,.4); transition: transform .2s cubic-bezier(.3,1.4,.5,1);
+  }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(16px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .preview {
+    display: block; width: 100%; padding: 12px; margin-top: 4px;
+    border: 0; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(135deg, #a970ff, #7c3aed);
+    color: #fff; font: inherit; font-size: 15px; font-weight: 650;
+    box-shadow: 0 8px 22px -6px rgba(124,58,237,.6), inset 0 1px 0 rgba(255,255,255,.35);
+    transition: transform .12s;
+  }
+  .preview:active { transform: scale(.985); }
+  .preview:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .saved { text-align: center; color: var(--dim); font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1>Notification settings</h1>
+  <p class="lead">Changes save automatically and show a preview.</p>
+
+  <section>
+    <h2>Where it appears</h2>
+    <div class="screen" id="screen" role="radiogroup" aria-label="Notification position">
+      <button class="zone" data-pos="top-left"      role="radio" aria-label="Top left"><div class="mini"></div></button>
+      <button class="zone" data-pos="top-center"    role="radio" aria-label="Top center"><div class="mini"></div></button>
+      <button class="zone" data-pos="top-right"     role="radio" aria-label="Top right"><div class="mini"></div></button>
+      <button class="zone" data-pos="bottom-left"   role="radio" aria-label="Bottom left"><div class="mini"></div></button>
+      <button class="zone" data-pos="bottom-center" role="radio" aria-label="Bottom center"><div class="mini"></div></button>
+      <button class="zone" data-pos="bottom-right"  role="radio" aria-label="Bottom right"><div class="mini"></div></button>
+    </div>
+    <div class="screen-note">Click where you want it on your screen.</div>
+
+    <div class="row" id="displayRow" hidden>
+      <label class="name" for="display">Display</label>
+      <select id="display"></select>
+    </div>
+    <div class="row">
+      <label class="name" for="margin">Distance from edge</label>
+      <div class="ctl"><input type="range" id="margin" min="0" max="120" step="2"><span class="val" id="marginVal"></span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Animation</h2>
+    <div class="seg" id="seg" role="radiogroup" aria-label="Animation style">
+      <button data-v="bounce" role="radio">Bounce</button>
+      <button data-v="slide"  role="radio">Slide</button>
+      <button data-v="pop"    role="radio">Pop</button>
+      <button data-v="fade"   role="radio">Fade</button>
+    </div>
+    <div class="row">
+      <label class="name" for="from">Comes in from<span class="hint">Bounce and Slide only</span></label>
+      <select id="from">
+        <option value="auto">Automatic</option>
+        <option value="top">Top</option>
+        <option value="bottom">Bottom</option>
+        <option value="left">Left</option>
+        <option value="right">Right</option>
+      </select>
+    </div>
+    <div class="row">
+      <label class="name" for="dur">Stays on screen</label>
+      <div class="ctl"><input type="range" id="dur" min="2" max="15" step="1"><span class="val" id="durVal"></span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sound</h2>
+    <div class="row">
+      <label class="name" for="sound">Play a sound</label>
+      <label class="switch"><input type="checkbox" id="sound"><span></span></label>
+    </div>
+    <div class="row">
+      <label class="name" for="vol">Volume</label>
+      <div class="ctl"><input type="range" id="vol" min="0" max="100" step="5"><span class="val" id="volVal"></span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>General</h2>
+    <div class="row">
+      <label class="name" for="login">Start with Windows</label>
+      <label class="switch"><input type="checkbox" id="login"><span></span></label>
+    </div>
+    <div class="row">
+      <label class="name" for="muted">Muted streamers<span class="hint">Separate names with commas</span></label>
+      <input type="text" id="muted" placeholder="name1, name2" autocomplete="off" spellcheck="false">
+    </div>
+  </section>
+
+  <button class="preview" id="preview">Show a preview</button>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let S = null;
+
+  function render() {
+    const c = S.config;
+    document.querySelectorAll('.zone').forEach((z) => {
+      const on = z.dataset.pos === c.position;
+      z.classList.toggle('on', on);
+      z.setAttribute('aria-checked', on);
+    });
+    document.querySelectorAll('#seg button').forEach((b) => {
+      const on = b.dataset.v === c.animation;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', on);
+    });
+    $('from').value = c.animationFrom;
+    $('from').disabled = c.animation === 'pop' || c.animation === 'fade';
+    $('margin').value = c.edgeMargin;
+    $('marginVal').textContent = c.edgeMargin + ' px';
+    $('dur').value = c.displayMs / 1000;
+    $('durVal').textContent = c.displayMs / 1000 + ' s';
+    $('sound').checked = c.soundEnabled;
+    $('vol').value = Math.round(c.soundVolume * 100);
+    $('vol').disabled = !c.soundEnabled;
+    $('volVal').textContent = Math.round(c.soundVolume * 100) + '%';
+    $('login').checked = S.launchAtLogin;
+    if (document.activeElement !== $('muted')) $('muted').value = c.ignoreStreamers.join(', ');
+    $('display').value = c.display;
+  }
+
+  function save(patch, preview) {
+    if ('launchAtLogin' in patch) { S.launchAtLogin = patch.launchAtLogin; }
+    const { launchAtLogin, ...rest } = patch;
+    Object.assign(S.config, rest);
+    render();
+    window.api.set(patch);
+    if (preview) window.api.preview();
+  }
+
+  async function init() {
+    S = await window.api.getSettings();
+
+    if (S.displays.length > 1) {
+      $('displayRow').hidden = false;
+      $('display').innerHTML =
+        '<option value="primary">Main display</option>' +
+        S.displays.map((d) => `<option value="${d.id}">${d.label}</option>`).join('');
+    }
+
+    document.querySelectorAll('.zone').forEach((z) =>
+      z.addEventListener('click', () => save({ position: z.dataset.pos }, true)));
+    document.querySelectorAll('#seg button').forEach((b) =>
+      b.addEventListener('click', () => save({ animation: b.dataset.v }, true)));
+
+    $('from').addEventListener('change', (e) => save({ animationFrom: e.target.value }, true));
+    $('display').addEventListener('change', (e) => save({ display: e.target.value }, true));
+
+    $('margin').addEventListener('input', (e) => save({ edgeMargin: Number(e.target.value) }, false));
+    $('margin').addEventListener('change', () => window.api.preview());
+    $('dur').addEventListener('input', (e) => save({ displayMs: Number(e.target.value) * 1000 }, false));
+    $('dur').addEventListener('change', () => window.api.preview());
+
+    $('sound').addEventListener('change', (e) => save({ soundEnabled: e.target.checked }, e.target.checked));
+    $('vol').addEventListener('input', (e) => save({ soundVolume: Number(e.target.value) / 100 }, false));
+    $('vol').addEventListener('change', () => window.api.preview());
+
+    $('login').addEventListener('change', (e) => save({ launchAtLogin: e.target.checked }, false));
+    $('muted').addEventListener('change', (e) => {
+      const names = e.target.value.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+      save({ ignoreStreamers: names }, false);
+      e.target.value = names.join(', ');
+    });
+
+    $('preview').addEventListener('click', () => window.api.preview());
+    render();
+  }
+  init();
+</script>
+</body>
+</html>

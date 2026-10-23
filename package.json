@@ -1,0 +1,60 @@
+{
+  "name": "twitch-live-notifier",
+  "version": "1.1.0",
+  "description": "Glass-style desktop notifications when streamers you follow go live.",
+  "author": "FyReO",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "electron . --test",
+    "dist": "electron-builder --win --publish never",
+    "release": "electron-builder --win --publish always"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.twitchlivenotifier.app",
+    "productName": "Twitch Live Notifier",
+    "files": [
+      "main.js",
+      "preload.js",
+      "ui-preload.js",
+      "updater.js",
+      "notification.html",
+      "settings.html",
+      "welcome.html",
+      "icon.png",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "artifactName": "Twitch-Live-Notifier-Setup.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "FyReO",
+        "repo": "Glassy-Twitch-Notifications",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FyReO/Glassy-Twitch-Notifications.git"
+  }
+}

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live notification</title>
+<style>
+  :root {
+    --purple: 145, 70, 255;
+    --text: rgba(255, 255, 255, 0.96);
+    --text-dim: rgba(255, 255, 255, 0.62);
+    --font: "SF Pro Display", -apple-system, "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* The window covers the whole screen; the stage just places the card. */
+  .stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+  }
+
+  /* ---------- the glass pill ---------- */
+  .card {
+    position: relative;
+    flex: none;
+    width: 388px;
+    height: 78px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 20px 0 13px;
+    border-radius: 999px;
+    overflow: hidden;
+    opacity: 0;
+
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.05) 45%, rgba(255,255,255,0.10) 100%),
+      rgba(26, 26, 34, 0.74);
+    -webkit-backdrop-filter: blur(32px) saturate(190%);
+    backdrop-filter: blur(32px) saturate(190%);
+
+    box-shadow:
+      inset 0 1.5px 0 rgba(255,255,255,0.50),
+      inset 0 -1px 0 rgba(255,255,255,0.10),
+      inset 0 0 0 1px rgba(255,255,255,0.14),
+      inset 0 0 28px rgba(255,255,255,0.05),
+      0 22px 44px -12px rgba(0,0,0,0.60),
+      0 6px 14px rgba(0,0,0,0.30);
+  }
+
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(120px 70px at 8% 110%, rgba(var(--purple), 0.55), transparent 70%),
+      radial-gradient(150px 60px at 92% -20%, rgba(90, 170, 255, 0.35), transparent 70%);
+    filter: blur(6px);
+  }
+
+  .card::after {
+    content: "";
+    position: absolute;
+    left: 8%; right: 8%;
+    top: 3px;
+    height: 36%;
+    border-radius: 999px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.22), rgba(255,255,255,0));
+  }
+
+  .card.clickable { cursor: pointer; }
+  .card.clickable:hover { filter: brightness(1.12); }
+
+  /* ---------- content ---------- */
+  .avatar {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    font-weight: 650;
+    color: #fff;
+    background: linear-gradient(145deg, #a970ff, #5b2bd6);
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.28),
+      0 0 0 4px rgba(var(--purple), 0.45),
+      0 6px 14px rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .text { position: relative; z-index: 1; flex: 1; min-width: 0; }
+  .name {
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sub {
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 450;
+    letter-spacing: -0.005em;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .badge {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px 6px 9px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: #fff;
+    background: rgba(255, 59, 70, 0.88);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.40), 0 3px 10px rgba(255, 59, 70, 0.40);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.8); } }
+
+  /* ---------- motion ----------
+     JS sets these on the card for each notification:
+       --ux / --uy  unit vector pointing from the screen edge toward the card's resting spot
+       --dist       how far off-screen the card starts (px)
+       data-axis    "v" (moves up/down) or "h" (moves left/right)
+       data-style   bounce | slide | pop | fade                                              */
+
+  /* Bounce: drops in, squashes on impact, settles with a wobble. */
+  @keyframes bounce-in-v {
+    0%   { opacity: 0; transform: translate(calc(var(--ux) * var(--dist) * -1), calc(var(--uy) * var(--dist) * -1)) scale(0.88, 1.20); animation-timing-function: cubic-bezier(0.25, 0.7, 0.35, 1); }
+    10%  { opacity: 1; }
+    38%  { opacity: 1; transform: translate(calc(var(--ux) * 12px), calc(var(--uy) * 12px)) scale(1.08, 0.88);   animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1); }
+    58%  { opacity: 1; transform: translate(calc(var(--ux) * -4px), calc(var(--uy) * -4px)) scale(0.98, 1.04);   animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1); }
+    78%  { opacity: 1; transform: translate(calc(var(--ux) * 1.5px), calc(var(--uy) * 1.5px)) scale(1.01, 0.99); animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1); }
+    100% { opacity: 1; transform: translate(0, 0) scale(1, 1); }
+  }
+  @keyframes bounce-in-h {
+    0%   { opacity: 0; transform: translate(calc(var(--ux) * var(--dist) * -1), calc(var(--uy) * var(--dist) * -1)) scale(1.20, 0.88); animation-timing-function: cubic-bezier(0.25, 0.7, 0.35, 1); }
+    10%  { opacity: 1; }
+    38%  { opacity: 1; transform: translate(calc(var(--ux) * 12px), calc(var(--uy) * 12px)) scale(0.88, 1.08);   animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1); }
+    58%  { opacity: 1; transform: translate(calc(var(--ux) * -4px), calc(var(--uy) * -4px)) scale(1.04, 0.98);   animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1); }
+    78%  { opacity: 1; transform: translate(calc(var(--ux) * 1.5px), calc(var(--uy) * 1.5px)) scale(0.99, 1.01); animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1); }
+    100% { opacity: 1; transform: translate(0, 0) scale(1, 1); }
+  }
+  @keyframes bounce-out-v {
+    0%   { opacity: 1; transform: translate(0, 0) scale(1, 1); animation-timing-function: ease-out; }
+    22%  { opacity: 1; transform: translate(calc(var(--ux) * 5px), calc(var(--uy) * 5px)) scale(1.03, 0.96); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.4); }
+    100% { opacity: 0; transform: translate(calc(var(--ux) * var(--dist) * -1), calc(var(--uy) * var(--dist) * -1)) scale(0.90, 1.16); }
+  }
+  @keyframes bounce-out-h {
+    0%   { opacity: 1; transform: translate(0, 0) scale(1, 1); animation-timing-function: ease-out; }
+    22%  { opacity: 1; transform: translate(calc(var(--ux) * 5px), calc(var(--uy) * 5px)) scale(0.96, 1.03); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.4); }
+    100% { opacity: 0; transform: translate(calc(var(--ux) * var(--dist) * -1), calc(var(--uy) * var(--dist) * -1)) scale(1.16, 0.90); }
+  }
+
+  /* Slide: smooth glide, no squish. */
+  @keyframes slide-in {
+    0%   { opacity: 0; transform: translate(calc(var(--ux) * var(--dist) * -1), calc(var(--uy) * var(--dist) * -1)); }
+    12%  { opacity: 1; }
+    100% { opacity: 1; transform: translate(0, 0); }
+  }
+  @keyframes slide-out {
+    0%   { opacity: 1; transform: translate(0, 0); }
+    70%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(calc(var(--ux) * var(--dist) * -1), calc(var(--uy) * var(--dist) * -1)); }
+  }
+
+  /* Pop: grows in place with a little overshoot. */
+  @keyframes pop-in {
+    0%   { opacity: 0; transform: scale(0.6); }
+    55%  { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes pop-out {
+    0%   { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.9); }
+  }
+
+  /* Fade: nothing but opacity. */
+  @keyframes fade-in  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+  .card.enter[data-style="bounce"][data-axis="v"] { animation: bounce-in-v 950ms both; }
+  .card.exit[data-style="bounce"][data-axis="v"]  { animation: bounce-out-v 620ms both; }
+  .card.enter[data-style="bounce"][data-axis="h"] { animation: bounce-in-h 950ms both; }
+  .card.exit[data-style="bounce"][data-axis="h"]  { animation: bounce-out-h 620ms both; }
+  .card.enter[data-style="slide"] { animation: slide-in 650ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .card.exit[data-style="slide"]  { animation: slide-out 500ms cubic-bezier(0.5, 0, 0.9, 0.4) both; }
+  .card.enter[data-style="pop"]   { animation: pop-in 480ms cubic-bezier(0.3, 0, 0.3, 1) both; }
+  .card.exit[data-style="pop"]    { animation: pop-out 300ms ease-in both; }
+  .card.enter[data-style="fade"]  { animation: fade-in 400ms ease-out both; }
+  .card.exit[data-style="fade"]   { animation: fade-out 400ms ease-in both; }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="card" id="card">
+      <div class="avatar" id="avatar"></div>
+      <div class="text">
+        <div class="name" id="name"></div>
+        <div class="sub" id="sub"></div>
+      </div>
+      <div class="badge" id="badge"><span class="dot"></span>Live</div>
+    </div>
+  </div>
+
+<script>
+  const stage = document.getElementById('stage');
+  const card = document.getElementById('card');
+  const avatar = document.getElementById('avatar');
+  const nameEl = document.getElementById('name');
+  const subEl = document.getElementById('sub');
+  const badgeEl = document.getElementById('badge');
+
+  let current = null;
+  let timer = null;
+  let exiting = false;
+  let hovering = false;
+
+  const STYLES = ['bounce', 'slide', 'pop', 'fade'];
+  const FROMS = ['top', 'bottom', 'left', 'right'];
+  const POSITIONS = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'];
+
+  function initial(n) { return (n || '?').trim().charAt(0).toUpperCase(); }
+
+  function render(data) {
+    nameEl.textContent = data.name;
+    badgeEl.style.display = data.system ? 'none' : '';
+    subEl.textContent = data.subtitle || (data.game ? `Playing ${data.game}` : 'Just went live');
+    card.classList.toggle('clickable', !!data.login);
+
+    avatar.innerHTML = '';
+    avatar.textContent = '';
+    if (data.avatar) {
+      const img = new Image();
+      img.alt = '';
+      img.onerror = () => { avatar.innerHTML = ''; avatar.textContent = initial(data.name); };
+      img.src = data.avatar;
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = initial(data.name);
+    }
+  }
+
+  // Place the card on screen and work out which way it should travel.
+  function layout(l) {
+    const position = POSITIONS.includes(l.position) ? l.position : 'top-center';
+    const style = STYLES.includes(l.style) ? l.style : 'bounce';
+    const margin = Number.isFinite(l.margin) ? l.margin : 14;
+    const [v, h] = position.split('-');
+
+    stage.style.padding = margin + 'px';
+    stage.style.justifyContent = h === 'left' ? 'flex-start' : h === 'right' ? 'flex-end' : 'center';
+    stage.style.alignItems = v === 'top' ? 'flex-start' : 'flex-end';
+
+    // "auto": side positions come in from their side, centered ones from the nearest top/bottom edge.
+    let from = FROMS.includes(l.from) ? l.from : (h === 'left' ? 'left' : h === 'right' ? 'right' : v);
+
+    card.classList.remove('enter', 'exit');
+    card.style.animation = 'none';
+    void card.offsetWidth;
+    card.style.animation = '';
+
+    const r = card.getBoundingClientRect(); // resting spot
+    const gap = 24;
+    const dist =
+      from === 'top' ? r.bottom + gap :
+      from === 'bottom' ? window.innerHeight - r.top + gap :
+      from === 'left' ? r.right + gap :
+      window.innerWidth - r.left + gap;
+
+    const vec = { top: [0, 1], bottom: [0, -1], left: [1, 0], right: [-1, 0] }[from]; // edge -> card
+    card.style.setProperty('--ux', vec[0]);
+    card.style.setProperty('--uy', vec[1]);
+    card.style.setProperty('--dist', Math.round(dist) + 'px');
+    card.style.transformOrigin = style === 'bounce'
+      ? { top: '50% 0', bottom: '50% 100%', left: '0 50%', right: '100% 50%' }[from]
+      : '50% 50%';
+    card.dataset.style = style;
+    card.dataset.axis = (from === 'top' || from === 'bottom') ? 'v' : 'h';
+    return style;
+  }
+
+  // ---------- sound ----------
+  let audioCtx = null;
+
+  // Soft glass chime: a quiet thump as the card lands, then two bell-like notes.
+  function playChime(volume, lead) {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const master = ctx.createGain();
+    master.gain.value = 0.45 * volume;
+    master.connect(ctx.destination);
+
+    const impact = ctx.currentTime + lead;
+
+    const thump = ctx.createOscillator();
+    const tg = ctx.createGain();
+    thump.type = 'sine';
+    thump.frequency.setValueAtTime(160, impact);
+    thump.frequency.exponentialRampToValueAtTime(48, impact + 0.16);
+    tg.gain.setValueAtTime(0.0001, impact);
+    tg.gain.linearRampToValueAtTime(0.7, impact + 0.012);
+    tg.gain.exponentialRampToValueAtTime(0.0001, impact + 0.2);
+    thump.connect(tg).connect(master);
+    thump.start(impact);
+    thump.stop(impact + 0.25);
+
+    const bell = (freq, start, peak) => {
+      [[1, 1], [2.01, 0.32], [3.97, 0.1]].forEach(([mult, amp]) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq * mult;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.linearRampToValueAtTime(peak * amp, start + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + 1.25 / Math.sqrt(mult));
+        o.connect(g).connect(master);
+        o.start(start);
+        o.stop(start + 1.4);
+      });
+    };
+    bell(783.99, impact + 0.02, 0.55);  // G5
+    bell(1174.66, impact + 0.11, 0.45); // D6
+  }
+
+  function playSound(sound, style) {
+    if (!sound || sound.volume <= 0) return;
+    try {
+      if (sound.file) {
+        const a = new Audio(sound.file);
+        a.volume = sound.volume;
+        a.play().catch((e) => console.error('Sound failed:', e));
+      } else {
+        const lead = { bounce: 0.33, slide: 0.18, pop: 0.08, fade: 0 }[style] ?? 0;
+        playChime(sound.volume, lead);
+      }
+    } catch (e) { console.error('Sound failed:', e); }
+  }
+
+  // ---------- lifecycle ----------
+  function startExit() {
+    if (exiting) return;
+    exiting = true;
+    clearTimeout(timer);
+    if (hovering) { hovering = false; window.notifier.hover(false); }
+    card.classList.remove('enter');
+    card.classList.add('exit');
+  }
+
+  window.notifier.onShow((data) => {
+    clearTimeout(timer);
+    current = data;
+    exiting = false;
+    hovering = false;
+    window.notifier.hover(false);
+
+    render(data);
+    const style = layout(data.layout || {});
+    void card.offsetWidth;
+    card.classList.add('enter');
+    playSound(data.sound, style);
+
+    timer = setTimeout(startExit, data.displayMs || 5000);
+  });
+
+  card.addEventListener('animationend', (e) => {
+    if (e.animationName.includes('-out') && current) window.notifier.done(current.id);
+  });
+
+  // Clickable: hovering pauses the countdown and lets the mouse reach the card.
+  card.addEventListener('mouseenter', () => {
+    if (!current || !current.login || exiting) return;
+    hovering = true;
+    clearTimeout(timer);
+    window.notifier.hover(true);
+  });
+  card.addEventListener('mouseleave', () => {
+    if (!hovering) return;
+    hovering = false;
+    window.notifier.hover(false);
+    if (!exiting) timer = setTimeout(startExit, 1500);
+  });
+  card.addEventListener('click', () => {
+    if (!current || !current.login || exiting) return;
+    window.notifier.open();
+    startExit();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How it works</title>
+<style>
+  :root {
+    --bg: #15151c;
+    --line: rgba(255, 255, 255, 0.10);
+    --text: rgba(255, 255, 255, 0.94);
+    --dim: rgba(255, 255, 255, 0.6);
+    --font: "SF Pro Display", -apple-system, "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+  body {
+    display: flex; flex-direction: column;
+    padding: 34px 36px 28px;
+    background:
+      radial-gradient(420px 260px at 85% -5%, rgba(145,70,255,0.30), transparent 70%),
+      radial-gradient(360px 240px at -10% 105%, rgba(90,170,255,0.16), transparent 70%),
+      var(--bg);
+  }
+  .icon { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 10px 24px -6px rgba(124,58,237,.6); margin-bottom: 18px; }
+  h1 { font-size: 28px; font-weight: 720; letter-spacing: -0.035em; line-height: 1.1; margin-bottom: 8px; }
+  .lead { color: var(--dim); font-size: 15px; line-height: 1.45; margin-bottom: 26px; }
+
+  ol { list-style: none; display: grid; gap: 18px; margin-bottom: auto; }
+  li { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
+  .n {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 15px; font-weight: 700;
+    background: rgba(145,70,255,0.22); box-shadow: inset 0 0 0 1px rgba(145,70,255,0.55);
+  }
+  li h2 { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; margin-bottom: 3px; }
+  li p { font-size: 14px; line-height: 1.5; color: var(--dim); }
+  li p b { color: var(--text); font-weight: 600; }
+
+  .actions { display: flex; gap: 10px; margin-top: 26px; }
+  button {
+    flex: 1; padding: 13px; border: 0; border-radius: 14px; cursor: pointer;
+    font: inherit; font-size: 15px; font-weight: 650;
+  }
+  button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .primary {
+    background: linear-gradient(135deg, #a970ff, #7c3aed); color: #fff;
+    box-shadow: 0 8px 22px -6px rgba(124,58,237,.6), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .primary:active, .ghost:active { transform: scale(.985); }
+  .ghost { background: rgba(255,255,255,0.09); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+</style>
+</head>
+<body>
+  <img class="icon" src="icon.png" alt="">
+  <h1>Welcome to Twitch Live Notifier</h1>
+  <p class="lead">A small glass notification that tells you the moment someone you follow goes live.</p>
+
+  <ol>
+    <li>
+      <div class="n">1</div>
+      <div>
+        <h2>Connect your Twitch account</h2>
+        <p>Your browser opens once. Click <b>Authorize</b> and you're done. The app only reads who you follow.</p>
+      </div>
+    </li>
+    <li>
+      <div class="n">2</div>
+      <div>
+        <h2>Get notified, then click</h2>
+        <p>When a streamer you follow goes live, a notification slides onto your screen. <b>Click it</b> to open their stream.</p>
+      </div>
+    </li>
+    <li>
+      <div class="n">3</div>
+      <div>
+        <h2>Make it yours</h2>
+        <p>The app runs quietly in the tray near your clock and starts with Windows. <b>Right-click the icon</b> and choose Settings to pick where it appears, how it moves, the sound, and who to mute.</p>
+      </div>
+    </li>
+  </ol>
+
+  <div class="actions">
+    <button class="ghost" id="sample">Show me a sample</button>
+    <button class="primary" id="go">Connect Twitch</button>
+  </div>
+
+<script>
+  const first = new URLSearchParams(location.search).get('first') === '1';
+  const go = document.getElementById('go');
+  go.textContent = first ? 'Connect Twitch' : 'Got it';
+  go.addEventListener('click', () => window.api.welcomeDone());
+  document.getElementById('sample').addEventListener('click', () => window.api.preview());
+</script>
+</body>
+</html>

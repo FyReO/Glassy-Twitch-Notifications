@@ -1,0 +1,23 @@
+name: Release
+
+# Push a tag like v1.2.0 and this builds the installer and publishes it as a GitHub Release.
+# Installed copies of the app detect the new release and update themselves.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
