@@ -149,7 +149,6 @@ function notify(item) {
   pump();
 }
 
-
 function systemNotify(title, subtitle) {
   notify({ system: true, name: title, subtitle, avatar: pathToFileURL(ICON_PATH).href });
 }
@@ -186,7 +185,6 @@ ipcMain.on('done', (_e, id) => {
   if (id === showId) finish();
 });
 
-
 ipcMain.on('hover', (_e, on) => {
   if (win && !win.isDestroyed()) win.setIgnoreMouseEvents(!on, { forward: true });
 });
@@ -211,7 +209,6 @@ function testNotification() {
   notify({ name: f.name, game: f.game, avatar: null, login: f.name.toLowerCase() });
 }
 
-// Replays immediately (used by Settings) instead of waiting behind whatever is queued.
 function previewNotification() {
   queue.length = 0;
   showing = false;
@@ -221,7 +218,7 @@ function previewNotification() {
 
 ipcMain.on('preview', previewNotification);
 
-// ---------- Twitch login  ----------
+// ---------- Twitch login (Device Code flow: no client secret needed) ----------
 const SCOPE = 'user:read:follows';
 const FORM = { 'Content-Type': 'application/x-www-form-urlencoded' };
 const tokenFile = () => dataPath('twitch-login.json');
@@ -318,7 +315,7 @@ function getUserTokens() {
           userTokens = await refreshTokens(userTokens);
           fs.writeFileSync(tokenFile(), JSON.stringify(userTokens));
         } catch {
-          userTokens = null;
+          userTokens = null; // login expired or was revoked: sign in again
         }
       }
       if (!userTokens) {
@@ -366,7 +363,7 @@ async function loadProfiles(param, values) {
   }
 }
 
-// Everyone you follow who is live right now.
+
 async function fetchFollowedLive() {
   const { user_id } = await getUserTokens();
   const out = [];
@@ -384,6 +381,7 @@ async function fetchFollowedLive() {
 async function fetchListedLive() {
   const logins = config.streamers.map((s) => s.toLowerCase());
   const out = [];
+  if (!logins.length) return out;
   for (const group of chunk(logins, 100)) {
     const qs = group.map((l) => `user_login=${encodeURIComponent(l)}`).join('&');
     out.push(...(await helix(`streams?first=100&${qs}`)).data);
@@ -439,10 +437,6 @@ async function startTwitch() {
   if (!hasClientId()) {
     console.error('No Twitch Client ID set. Paste yours into BUILT_IN_CLIENT_ID in main.js.');
     systemNotify('Twitch is not set up', 'This build has no Client ID yet.');
-    return;
-  }
-  if (!config.useFollowing && !config.streamers.length) {
-    systemNotify('No streamers to watch', 'Add names to your settings file, or turn on useFollowing.');
     return;
   }
   twitchStarted = true;
@@ -514,6 +508,8 @@ const SETTING_RULES = {
   soundEnabled: (v) => typeof v === 'boolean',
   soundVolume: (v) => Number.isFinite(v) && v >= 0 && v <= 1,
   ignoreStreamers: (v) => Array.isArray(v) && v.every((x) => typeof x === 'string'),
+  useFollowing: (v) => typeof v === 'boolean',
+  streamers: (v) => Array.isArray(v) && v.length <= 500 && v.every((x) => typeof x === 'string' && /^[a-z0-9_]{1,25}$/i.test(x)),
 };
 
 ipcMain.handle('settings:get', () => {
@@ -529,6 +525,8 @@ ipcMain.handle('settings:get', () => {
       soundEnabled: !!config.soundEnabled,
       soundVolume: config.soundVolume,
       ignoreStreamers: config.ignoreStreamers || [],
+      useFollowing: config.useFollowing !== false,
+      streamers: config.streamers || [],
     },
     launchAtLogin: app.getLoginItemSettings().openAtLogin,
     displays: screen.getAllDisplays().map((d, i) => ({
@@ -549,6 +547,7 @@ ipcMain.handle('settings:set', (_e, patch) => {
     }
   }
   if (Object.keys(toSave).length) saveConfigPatch(toSave);
+  if (('useFollowing' in toSave || 'streamers' in toSave) && twitchStarted) poll();
   return true;
 });
 

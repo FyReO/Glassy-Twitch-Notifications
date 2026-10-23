@@ -190,6 +190,18 @@
   </section>
 
   <section>
+    <h2>Who to notify about</h2>
+    <div class="row">
+      <label class="name" for="following">Use my Twitch following<span class="hint">Off = only the streamers you list</span></label>
+      <label class="switch"><input type="checkbox" id="following"><span></span></label>
+    </div>
+    <div class="row" id="listRow" hidden>
+      <label class="name" for="watch">Streamers to watch<span class="hint">Twitch usernames, separated by commas</span></label>
+      <input type="text" id="watch" placeholder="name1, name2" autocomplete="off" spellcheck="false">
+    </div>
+  </section>
+
+  <section>
     <h2>Sound</h2>
     <div class="row">
       <label class="name" for="sound">Play a sound</label>
@@ -244,6 +256,16 @@
     $('login').checked = S.launchAtLogin;
     if (document.activeElement !== $('muted')) $('muted').value = c.ignoreStreamers.join(', ');
     $('display').value = c.display;
+    $('following').checked = c.useFollowing;
+    $('listRow').hidden = c.useFollowing;
+    $('muted').closest('.row').hidden = !c.useFollowing; // muting only applies to your following
+    if (document.activeElement !== $('watch')) $('watch').value = c.streamers.join(', ');
+  }
+
+  function parseNames(text) {
+    return [...new Set(text.split(/[,\s]+/)
+      .map((s) => s.trim().toLowerCase().replace(/^@/, '').replace(/^.*twitch\.tv\//, ''))
+      .filter((s) => /^[a-z0-9_]{1,25}$/.test(s)))];
   }
 
   function save(patch, preview) {
@@ -286,6 +308,13 @@
     $('muted').addEventListener('change', (e) => {
       const names = e.target.value.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
       save({ ignoreStreamers: names }, false);
+      e.target.value = names.join(', ');
+    });
+
+    $('following').addEventListener('change', (e) => save({ useFollowing: e.target.checked }, false));
+    $('watch').addEventListener('change', (e) => {
+      const names = parseNames(e.target.value);
+      save({ streamers: names }, false);
       e.target.value = names.join(', ');
     });
 
