@@ -315,7 +315,7 @@ function getUserTokens() {
           userTokens = await refreshTokens(userTokens);
           fs.writeFileSync(tokenFile(), JSON.stringify(userTokens));
         } catch {
-          userTokens = null; // login expired or was revoked: sign in again
+          userTokens = null;
         }
       }
       if (!userTokens) {
@@ -377,7 +377,6 @@ async function fetchFollowedLive() {
   return out;
 }
 
-// Only the streamers listed in the settings file (when useFollowing is false).
 async function fetchListedLive() {
   const logins = config.streamers.map((s) => s.toLowerCase());
   const out = [];
@@ -565,7 +564,7 @@ function refreshTrayMenu() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Settings...', click: openSettings },
-      { label: 'Show test notification  (Ctrl+Shift+T)', click: previewNotification },
+      { label: 'Show test notification  (Ctrl+Shift+Y)', click: previewNotification },
       { type: 'separator' },
       { label: 'How it works', click: () => openWelcome(false) },
       { label: 'Reconnect Twitch account', click: reconnectTwitch },
@@ -596,7 +595,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   if (!TEST_MODE) updater.init(refreshTrayMenu);
-  globalShortcut.register('CommandOrControl+Shift+T', previewNotification);
+  globalShortcut.register('CommandOrControl+Shift+Y', previewNotification);
 
   if (TEST_MODE) {
     testNotification();

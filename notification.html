@@ -402,18 +402,20 @@
   });
 
   // Clickable: hovering pauses the countdown and lets the mouse reach the card.
-  card.addEventListener('mouseenter', () => {
-    if (!current || !current.login || exiting) return;
+  function hoverOn() {
+    if (hovering || !current || !current.login || exiting) return;
     hovering = true;
     clearTimeout(timer);
-    window.notifier.hover(true);
-  });
-  card.addEventListener('mouseleave', () => {
+  }
+  function hoverOff() {
     if (!hovering) return;
     hovering = false;
-    window.notifier.hover(false);
     if (!exiting) timer = setTimeout(startExit, 1500);
-  });
+  }
+  // The main process tracks the cursor and tells us when it's over the card.
+  window.notifier.onHoverState((on) => (on ? hoverOn() : hoverOff()));
+  card.addEventListener('mouseenter', hoverOn);
+  card.addEventListener('mouseleave', hoverOff);
   card.addEventListener('click', () => {
     if (!current || !current.login || exiting) return;
     window.notifier.open();
