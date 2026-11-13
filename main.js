@@ -27,6 +27,7 @@ const DEFAULTS = {
   animationFrom: 'auto',
   edgeMargin: 14,
   display: 'primary',
+  glass: 'liquid', // classic | liquid | bubble | aurora | christmas
 };
 const POSITIONS = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'];
 
@@ -134,6 +135,7 @@ function layoutPayload() {
     from: config.animationFrom,
     style: config.animation,
     margin: config.edgeMargin,
+    glass: config.glass,
   };
 }
 
@@ -230,6 +232,7 @@ let twitchStarted = false;
 const profiles = new Map();
 const lastSeen = new Map();
 let firstPoll = true;
+let liveNow = new Set(); // everyone the last poll saw live (shown as green dots in Settings)
 
 function tokenBody(extra) {
   const body = { client_id: clientId(), ...extra };
@@ -388,12 +391,20 @@ async function fetchListedLive() {
   return out;
 }
 
-async function poll() {
+// quiet: update what we know without notifying (used right after the list or mode changes).
+// quietLogins: names that were just added, so streamers who are already live don't pop up.
+async function poll({ quiet = false, quietLogins = null } = {}) {
   if (authBlocked) return;
   const now = Date.now();
   try {
     const streams = config.useFollowing ? await fetchFollowedLive() : await fetchListedLive();
-    const ignore = new Set((config.ignoreStreamers || []).map((s) => s.toLowerCase()));
+    liveNow = new Set(streams.map((s) => s.user_login.toLowerCase()));
+
+    // Muting only applies to "everyone I follow". It must never hide streamers you picked by name.
+    const ignore = config.useFollowing
+      ? new Set((config.ignoreStreamers || []).map((s) => s.toLowerCase()))
+      : new Set();
+    const silent = quiet || (firstPoll && !config.notifyOnStartup);
     const fresh = [];
 
     for (const s of streams) {
@@ -401,7 +412,7 @@ async function poll() {
       if (ignore.has(login)) continue;
       const wasLive = lastSeen.has(login) && now - lastSeen.get(login) < 10 * 60 * 1000;
       lastSeen.set(login, now);
-      if (!wasLive && (!firstPoll || config.notifyOnStartup)) fresh.push(s);
+      if (!wasLive && !silent && !(quietLogins && quietLogins.has(login))) fresh.push(s);
     }
 
     const missing = fresh.filter((s) => !profiles.has(s.user_login.toLowerCase())).map((s) => s.user_id);
@@ -499,14 +510,15 @@ ipcMain.on('welcome:done', (e) => BrowserWindow.fromWebContents(e.sender)?.close
 
 const SETTING_RULES = {
   position: (v) => POSITIONS.includes(v),
-  animation: (v) => ['bounce', 'slide', 'pop', 'fade'].includes(v),
+  animation: (v) => ['bounce', 'slide', 'pop', 'fade', 'grow'].includes(v),
   animationFrom: (v) => ['auto', 'top', 'bottom', 'left', 'right'].includes(v),
   edgeMargin: (v) => Number.isFinite(v) && v >= 0 && v <= 200,
   display: (v) => typeof v === 'string',
+  glass: (v) => ['classic', 'liquid', 'bubble', 'aurora', 'christmas'].includes(v),
   displayMs: (v) => Number.isFinite(v) && v >= 1500 && v <= 30000,
   soundEnabled: (v) => typeof v === 'boolean',
   soundVolume: (v) => Number.isFinite(v) && v >= 0 && v <= 1,
-  ignoreStreamers: (v) => Array.isArray(v) && v.every((x) => typeof x === 'string'),
+  ignoreStreamers: (v) => Array.isArray(v) && v.length <= 500 && v.every((x) => typeof x === 'string' && /^[a-z0-9_]{1,25}$/i.test(x)),
   useFollowing: (v) => typeof v === 'boolean',
   streamers: (v) => Array.isArray(v) && v.length <= 500 && v.every((x) => typeof x === 'string' && /^[a-z0-9_]{1,25}$/i.test(x)),
 };
@@ -520,6 +532,7 @@ ipcMain.handle('settings:get', () => {
       animationFrom: config.animationFrom,
       edgeMargin: config.edgeMargin,
       display: config.display,
+      glass: config.glass,
       displayMs: config.displayMs,
       soundEnabled: !!config.soundEnabled,
       soundVolume: config.soundVolume,
@@ -536,18 +549,51 @@ ipcMain.handle('settings:get', () => {
 });
 
 ipcMain.handle('settings:set', (_e, patch) => {
+  const before = {
+    useFollowing: config.useFollowing !== false,
+    streamers: (config.streamers || []).map((x) => x.toLowerCase()),
+  };
   const toSave = {};
   for (const [key, value] of Object.entries(patch || {})) {
     if (key === 'launchAtLogin') {
       app.setLoginItemSettings({ openAtLogin: !!value });
     } else if (SETTING_RULES[key] && SETTING_RULES[key](value)) {
-      config[key] = value;
-      toSave[key] = value;
+      const v = (key === 'streamers' || key === 'ignoreStreamers')
+        ? [...new Set(value.map((x) => x.toLowerCase()))] // lowercase, no duplicates
+        : value;
+      config[key] = v;
+      toSave[key] = v;
     }
   }
   if (Object.keys(toSave).length) saveConfigPatch(toSave);
-  if (('useFollowing' in toSave || 'streamers' in toSave) && twitchStarted) poll();
+
+  if (twitchStarted) {
+    if ('useFollowing' in toSave && toSave.useFollowing !== before.useFollowing) {
+      poll({ quiet: true }); // switching lists: whoever is live now is the baseline
+    } else if ('streamers' in toSave) {
+      const added = toSave.streamers.filter((x) => !before.streamers.includes(x));
+      poll({ quietLogins: new Set(added) }); // newly added streamers who are already live don't pop up
+    }
+  }
   return true;
+});
+
+// Who the last poll saw live (drives the green dots in Settings).
+ipcMain.handle('settings:live', () => [...liveNow]);
+
+// Checks a name exists on Twitch before it is added, so typos don't silently never notify.
+ipcMain.handle('streamers:lookup', async (_e, raw) => {
+  const login = String(raw || '').trim().toLowerCase();
+  if (!/^[a-z0-9_]{1,25}$/.test(login)) return { status: 'invalid', login };
+  if (!twitchStarted || authBlocked || !userTokens) return { status: 'unknown', login }; // not logged in yet: allow it
+  try {
+    const { data } = await helix(`users?login=${encodeURIComponent(login)}`);
+    if (!data.length) return { status: 'notfound', login };
+    profiles.set(data[0].login.toLowerCase(), data[0]);
+    return { status: 'ok', login: data[0].login.toLowerCase() };
+  } catch {
+    return { status: 'unknown', login }; // network hiccup: allow it
+  }
 });
 
 // ---------- tray ----------

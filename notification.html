@@ -221,11 +221,314 @@
   .card.exit[data-style="pop"]    { animation: pop-out 300ms ease-in both; }
   .card.enter[data-style="fade"]  { animation: fade-in 400ms ease-out both; }
   .card.exit[data-style="fade"]   { animation: fade-out 400ms ease-in both; }
+
+  /* Grow: appears as a small glass bubble, then stretches out to both sides into the full pill.
+     The pill is revealed with a clip-path; the avatar rides along the left edge as it widens,
+     and the text and Live badge fade in once there is room for them. */
+  .card.enter[data-style="grow"] { animation: grow-in 900ms cubic-bezier(0.3, 0.8, 0.3, 1) both; }
+  .card.exit[data-style="grow"]  { animation: grow-out 560ms cubic-bezier(0.5, 0, 0.8, 0.4) both; }
+  .card.enter[data-style="grow"] .avatar { animation: grow-avatar-in 900ms cubic-bezier(0.3, 0.8, 0.3, 1) both; }
+  .card.exit[data-style="grow"]  .avatar { animation: grow-avatar-out 560ms cubic-bezier(0.5, 0, 0.8, 0.4) both; }
+  .card.enter[data-style="grow"] .text,
+  .card.enter[data-style="grow"] .badge { animation: grow-content-in 900ms ease both; }
+  .card.exit[data-style="grow"] .text,
+  .card.exit[data-style="grow"] .badge { animation: grow-content-out 560ms ease both; }
+
+  /* 78px circle = the card's height; 154px = distance from the avatar's resting spot to the card's center. */
+  @keyframes grow-in {
+    0%   { opacity: 0; transform: scale(0.3);  clip-path: inset(0 calc(50% - 39px) round 39px); }
+    22%  { opacity: 1; transform: scale(1.08); clip-path: inset(0 calc(50% - 39px) round 39px); }
+    32%  { opacity: 1; transform: scale(1);    clip-path: inset(0 calc(50% - 39px) round 39px); }
+    88%  { opacity: 1; transform: scale(1);    clip-path: inset(0 0 round 39px); }
+    100% { opacity: 1; transform: scale(1);    clip-path: inset(-70px round 80px); }
+  }
+  @keyframes grow-out {
+    0%   { opacity: 1; transform: scale(1);   clip-path: inset(-70px round 80px); }
+    12%  { opacity: 1; transform: scale(1);   clip-path: inset(0 0 round 39px); }
+    70%  { opacity: 1; transform: scale(1);   clip-path: inset(0 calc(50% - 39px) round 39px); }
+    100% { opacity: 0; transform: scale(0.4); clip-path: inset(0 calc(50% - 39px) round 39px); }
+  }
+  @keyframes grow-avatar-in {
+    0%, 32% { transform: translateX(154px); }
+    88%, 100% { transform: translateX(0); }
+  }
+  @keyframes grow-avatar-out {
+    0%, 12% { transform: translateX(0); }
+    70%, 100% { transform: translateX(154px); }
+  }
+  @keyframes grow-content-in {
+    0%, 55% { opacity: 0; }
+    92%, 100% { opacity: 1; }
+  }
+  @keyframes grow-content-out {
+    0% { opacity: 1; }
+    30%, 100% { opacity: 0; }
+  }
+
+  /* ---------- glass styles ----------
+     classic : the original frosted pill, perfectly still
+     liquid  : drifting color, a gliding shine, twinkles, and a gently wobbling edge
+     bubble  : soap-film iridescence, floating bubbles, a jelly-like wobble
+     aurora  : slow ribbons of color under the glass
+     christmas : red and green glow, falling snow, twinkling string lights
+     The animated styles draw their glass on .body (so the wobble never touches the text). */
+  .body, .fx, .snow, .lights { display: none; }
+
+  .card[data-glass="liquid"], .card[data-glass="bubble"], .card[data-glass="aurora"], .card[data-glass="christmas"] {
+    overflow: visible;
+    background: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .card[data-glass="liquid"]::before, .card[data-glass="liquid"]::after,
+  .card[data-glass="bubble"]::before, .card[data-glass="bubble"]::after,
+  .card[data-glass="aurora"]::before, .card[data-glass="aurora"]::after,
+  .card[data-glass="christmas"]::before, .card[data-glass="christmas"]::after { display: none; }
+
+  .card[data-glass="liquid"] .body,
+  .card[data-glass="bubble"] .body,
+  .card[data-glass="aurora"] .body,
+  .card[data-glass="christmas"] .body {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .card[data-glass="liquid"] .fx,
+  .card[data-glass="bubble"] .fx,
+  .card[data-glass="aurora"] .fx,
+  .card[data-glass="christmas"] .fx { display: block; position: absolute; inset: 0; }
+  .fx i { position: absolute; display: block; pointer-events: none; }
+
+  /* ----- liquid ----- */
+  .card[data-glass="liquid"] .body {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.04) 48%, rgba(255,255,255,0.12) 100%),
+      rgba(24, 26, 40, 0.68);
+    box-shadow:
+      inset 0 1.5px 0 rgba(255,255,255,0.55),
+      inset 0 0 0 1px rgba(255,255,255,0.16),
+      inset 0 -12px 22px -8px rgba(130,170,255,0.20),
+      0 22px 44px -12px rgba(0,0,0,0.60),
+      0 6px 14px rgba(0,0,0,0.30);
+  }
+  /* The wobble only distorts the moving color inside the glass. The pill's outline and rim stay crisp and aligned. */
+  .card[data-glass="liquid"] .fx { filter: url(#wave-liquid); }
+  .card[data-glass="liquid"] .fx i:nth-child(1) { left: -30px; top: -34px; width: 170px; height: 112px; background: radial-gradient(closest-side, rgba(145,70,255,0.80), transparent); filter: blur(8px); animation: drift-a 7s ease-in-out infinite alternate; }
+  .card[data-glass="liquid"] .fx i:nth-child(2) { right: -34px; bottom: -40px; width: 180px; height: 112px; background: radial-gradient(closest-side, rgba(70,170,255,0.65), transparent); filter: blur(8px); animation: drift-b 9s ease-in-out infinite alternate; }
+  .card[data-glass="liquid"] .fx i:nth-child(3) { left: 120px; top: 10px; width: 130px; height: 84px; background: radial-gradient(closest-side, rgba(255,110,200,0.42), transparent); filter: blur(8px); animation: drift-c 11s ease-in-out infinite alternate; }
+
+  @keyframes drift-a { from { transform: translate(0, 0) scale(1); }        to { transform: translate(150px, 26px) scale(1.25); } }
+  @keyframes drift-b { from { transform: translate(0, 0) scale(1.1); }      to { transform: translate(-160px, -24px) scale(0.9); } }
+  @keyframes drift-c { from { transform: translate(-50px, 10px) scale(.9); } to { transform: translate(70px, -18px) scale(1.2); } }
+
+  /* ----- bubble ----- */
+  .card[data-glass="bubble"] .body {
+    background:
+      radial-gradient(130% 160% at 10% -10%, rgba(255,255,255,0.30), transparent 45%),
+      rgba(22, 26, 42, 0.52);
+    box-shadow:
+      inset 4px 5px 10px -2px rgba(255,255,255,0.50),
+      inset -4px -5px 12px -2px rgba(150,200,255,0.30),
+      inset 0 0 0 1.5px rgba(255,255,255,0.32),
+      0 22px 44px -12px rgba(0,0,0,0.55),
+      0 6px 14px rgba(0,0,0,0.28);
+  }
+  .card[data-glass="bubble"] .fx { filter: url(#wave-bubble); }
+
+  .card[data-glass="bubble"] .fx i:nth-child(1) {
+    inset: -70% -20%;
+    background: conic-gradient(rgba(255,120,200,0.60), rgba(120,210,255,0.60), rgba(255,245,150,0.48), rgba(180,130,255,0.60), rgba(255,120,200,0.60));
+    filter: blur(16px);
+    opacity: 0.55;
+    mix-blend-mode: screen;
+    animation: swirl 10s linear infinite;
+  }
+  @keyframes swirl { to { transform: rotate(360deg); } }
+
+  .card[data-glass="bubble"] .fx i:nth-child(n+2) {
+    bottom: -26px;
+    border-radius: 50%;
+    opacity: 0;
+    background: radial-gradient(circle at 32% 30%, rgba(255,255,255,0.90) 0 7%, rgba(255,255,255,0.14) 28%, rgba(130,200,255,0.12) 62%, rgba(255,255,255,0.30) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.45);
+    animation: rise 4.4s ease-in infinite;
+  }
+  .card[data-glass="bubble"] .fx i:nth-child(2) { left: 46px;  width: 14px; height: 14px; animation-duration: 4.4s; }
+  .card[data-glass="bubble"] .fx i:nth-child(3) { left: 150px; width: 22px; height: 22px; animation-duration: 5.2s; animation-delay: .8s; }
+  .card[data-glass="bubble"] .fx i:nth-child(4) { left: 236px; width: 10px; height: 10px; animation-duration: 3.8s; animation-delay: 1.6s; }
+  .card[data-glass="bubble"] .fx i:nth-child(5) { left: 304px; width: 18px; height: 18px; animation-duration: 4.8s; animation-delay: .4s; }
+  .card[data-glass="bubble"] .fx i:nth-child(6) { left: 352px; width: 12px; height: 12px; animation-duration: 4.2s; animation-delay: 2.2s; }
+  @keyframes rise {
+    0%   { opacity: 0;    transform: translate(0, 0) scale(0.6); }
+    15%  { opacity: 0.95; }
+    50%  { opacity: 0.95; transform: translate(8px, -50px) scale(1); }
+    85%  { opacity: 0.8; }
+    100% { opacity: 0;    transform: translate(-6px, -112px) scale(1.05); }
+  }
+
+  /* ----- aurora ----- */
+  .card[data-glass="aurora"] .body {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.10) 100%),
+      rgba(18, 20, 34, 0.72);
+    box-shadow:
+      inset 0 1.5px 0 rgba(255,255,255,0.50),
+      inset 0 0 0 1px rgba(255,255,255,0.14),
+      0 22px 44px -12px rgba(0,0,0,0.60),
+      0 6px 14px rgba(0,0,0,0.30);
+  }
+  .card[data-glass="aurora"] .fx { filter: url(#wave-aurora); }
+  .card[data-glass="aurora"] .fx i:nth-child(1) { left: -40px; top: -6px; width: 330px; height: 56px; background: linear-gradient(90deg, transparent, rgba(145,70,255,0.80), rgba(60,200,255,0.65), transparent); filter: blur(13px); animation: streak-a 7s ease-in-out infinite alternate; }
+  .card[data-glass="aurora"] .fx i:nth-child(2) { left: 60px; bottom: -8px; width: 330px; height: 52px; background: linear-gradient(90deg, transparent, rgba(255,100,200,0.62), rgba(80,255,190,0.48), transparent); filter: blur(13px); animation: streak-b 9s ease-in-out infinite alternate; }
+  .card[data-glass="aurora"] .fx i:nth-child(3) { display: none; }
+  @keyframes streak-a { from { transform: translate(-70px, 10px) rotate(-12deg); } to { transform: translate(110px, -8px) rotate(-5deg); } }
+  @keyframes streak-b { from { transform: translate(90px, -6px) rotate(8deg); }    to { transform: translate(-110px, 8px) rotate(14deg); } }
+
+  /* ----- shine and twinkles (liquid + aurora) ----- */
+  .card[data-glass="liquid"] .fx i:nth-child(4),
+  .card[data-glass="aurora"] .fx i:nth-child(4) {
+    top: -30%; bottom: -30%; left: 0; width: 80px;
+    background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0) 20%, rgba(255,255,255,0.50) 50%, rgba(255,255,255,0) 80%, transparent 100%);
+    filter: blur(3px);
+    opacity: 0;
+    animation: sweep 3.6s cubic-bezier(0.4, 0, 0.2, 1) 0.5s infinite;
+  }
+  @keyframes sweep {
+    0%   { opacity: 0; transform: translateX(-140px) skewX(-20deg); }
+    12%  { opacity: 1; }
+    55%  { opacity: 1; transform: translateX(470px) skewX(-20deg); }
+    62%, 100% { opacity: 0; transform: translateX(470px) skewX(-20deg); }
+  }
+  .card[data-glass="liquid"] .fx i:nth-child(n+5),
+  .card[data-glass="aurora"] .fx i:nth-child(n+5) {
+    width: 16px; height: 16px; opacity: 0;
+    background: radial-gradient(circle, rgba(255,255,255,0.95) 0 12%, rgba(255,255,255,0.35) 30%, transparent 62%);
+    animation: twinkle 2.4s ease-in-out infinite;
+  }
+  .card[data-glass="liquid"] .fx i:nth-child(5), .card[data-glass="aurora"] .fx i:nth-child(5) { left: 64px; top: 12px; animation-delay: 0.6s; }
+  .card[data-glass="liquid"] .fx i:nth-child(6), .card[data-glass="aurora"] .fx i:nth-child(6) { right: 92px; bottom: 12px; animation-delay: 1.5s; }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0;   transform: scale(0.4); }
+    45%      { opacity: 1;   transform: scale(1.15); }
+    70%      { opacity: 0.2; transform: scale(0.7); }
+  }
+
+  /* ----- christmas -----
+     Red and green glow drifting under the glass, snow falling inside the pill,
+     and a string of twinkling bulbs along the top edge. The outline stays crisp (no wobble). */
+  .card[data-glass="christmas"] .body {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 48%, rgba(255,255,255,0.11) 100%),
+      rgba(18, 24, 30, 0.72);
+    box-shadow:
+      inset 0 1.5px 0 rgba(255,255,255,0.55),
+      inset 0 0 0 1px rgba(255,255,255,0.16),
+      inset 0 -12px 22px -8px rgba(255,90,90,0.22),
+      0 22px 44px -12px rgba(0,0,0,0.60),
+      0 6px 14px rgba(0,0,0,0.30);
+  }
+  .card[data-glass="christmas"] .fx i:nth-child(1) { left: -30px; top: -34px; width: 170px; height: 112px; background: radial-gradient(closest-side, rgba(235,60,60,0.75), transparent); filter: blur(8px); animation: drift-a 7s ease-in-out infinite alternate; }
+  .card[data-glass="christmas"] .fx i:nth-child(2) { right: -34px; bottom: -40px; width: 180px; height: 112px; background: radial-gradient(closest-side, rgba(40,190,100,0.62), transparent); filter: blur(8px); animation: drift-b 9s ease-in-out infinite alternate; }
+  .card[data-glass="christmas"] .fx i:nth-child(3) { left: 120px; top: 10px; width: 130px; height: 84px; background: radial-gradient(closest-side, rgba(255,205,100,0.26), transparent); filter: blur(8px); animation: drift-c 11s ease-in-out infinite alternate; }
+  .card[data-glass="christmas"] .fx i:nth-child(4) {
+    top: -30%; bottom: -30%; left: 0; width: 80px;
+    background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0) 20%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0) 80%, transparent 100%);
+    filter: blur(3px);
+    opacity: 0;
+    animation: sweep 4.2s cubic-bezier(0.4, 0, 0.2, 1) 0.8s infinite;
+  }
+  .card[data-glass="christmas"] .fx i:nth-child(n+5) { display: none; }
+
+  .card[data-glass="christmas"] .snow,
+  .card[data-glass="christmas"] .lights { display: block; position: absolute; inset: 0; pointer-events: none; }
+
+  .snow i {
+    position: absolute; top: -8px; display: block; border-radius: 50%; opacity: 0;
+    background: radial-gradient(circle, #fff 0 45%, rgba(255,255,255,0.35) 100%);
+    box-shadow: 0 0 5px rgba(255,255,255,0.7);
+    animation: snowfall 4s linear infinite;
+  }
+  .snow i:nth-child(1) { left: 24px;  width: 3px; height: 3px; --dx: 8px;   animation-duration: 3.6s; animation-delay: 0s; }
+  .snow i:nth-child(2) { left: 66px;  width: 4px; height: 4px; --dx: -10px; animation-duration: 4.8s; animation-delay: 1.2s; }
+  .snow i:nth-child(3) { left: 108px; width: 3px; height: 3px; --dx: 12px;  animation-duration: 4.1s; animation-delay: 2.4s; }
+  .snow i:nth-child(4) { left: 150px; width: 5px; height: 5px; --dx: -8px;  animation-duration: 5.4s; animation-delay: 0.6s; }
+  .snow i:nth-child(5) { left: 196px; width: 3px; height: 3px; --dx: 10px;  animation-duration: 3.9s; animation-delay: 1.8s; }
+  .snow i:nth-child(6) { left: 238px; width: 4px; height: 4px; --dx: -12px; animation-duration: 4.6s; animation-delay: 3s; }
+  .snow i:nth-child(7) { left: 280px; width: 3px; height: 3px; --dx: 8px;   animation-duration: 5.1s; animation-delay: 0.3s; }
+  .snow i:nth-child(8) { left: 322px; width: 5px; height: 5px; --dx: -10px; animation-duration: 4.2s; animation-delay: 2.1s; }
+  .snow i:nth-child(9) { left: 362px; width: 4px; height: 4px; --dx: 12px;  animation-duration: 5s;   animation-delay: 1.5s; }
+  @keyframes snowfall {
+    0%   { opacity: 0;    transform: translate(0, 0); }
+    12%  { opacity: 0.95; }
+    85%  { opacity: 0.8; }
+    100% { opacity: 0;    transform: translate(var(--dx, 10px), 96px); }
+  }
+
+  .lights::before {
+    content: ""; position: absolute; left: 66px; right: 40px; top: 2px; height: 1px;
+    background: rgba(255,255,255,0.30);
+  }
+  .lights b {
+    position: absolute; top: 4px; display: block; width: 7px; height: 10px;
+    border-radius: 50% 50% 50% 50% / 38% 38% 62% 62%;
+    background: var(--c); box-shadow: 0 0 9px 2px var(--c);
+    opacity: 0.4;
+    animation: bulb 2s ease-in-out infinite;
+  }
+  .lights b::before {
+    content: ""; position: absolute; left: 1.5px; top: -3px; width: 4px; height: 3px;
+    border-radius: 1px; background: rgba(210,215,225,0.55);
+  }
+  .lights b:nth-child(odd)  { animation-delay: 0s; }
+  .lights b:nth-child(even) { animation-delay: 1s; }
+  .lights b:nth-child(1) { left: 80px;  --c: #ff4d4d; }
+  .lights b:nth-child(2) { left: 114px; --c: #ffd24a; }
+  .lights b:nth-child(3) { left: 148px; --c: #3ddc84; }
+  .lights b:nth-child(4) { left: 182px; --c: #5aa9ff; }
+  .lights b:nth-child(5) { left: 216px; --c: #ff4d4d; }
+  .lights b:nth-child(6) { left: 250px; --c: #ffd24a; }
+  .lights b:nth-child(7) { left: 284px; --c: #3ddc84; }
+  .lights b:nth-child(8) { left: 318px; --c: #5aa9ff; }
+  @keyframes bulb { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fx i, .snow i, .card[data-glass] .body { animation: none !important; }
+    .lights b { animation: none !important; opacity: 1; }
+  }
 </style>
 </head>
 <body>
+  <!-- Gentle liquid wobble applied to the glass body only (never the text). -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <filter id="wave-liquid" x="-10%" y="-40%" width="120%" height="300%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.007 0.020" numOctaves="1" seed="4" result="n">
+          <animate attributeName="baseFrequency" dur="8s" values="0.007 0.020;0.012 0.027;0.007 0.020" repeatCount="indefinite"/>
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="4.5" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="wave-bubble" x="-10%" y="-40%" width="120%" height="300%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.006 0.018" numOctaves="1" seed="9" result="n">
+          <animate attributeName="baseFrequency" dur="6s" values="0.006 0.018;0.012 0.026;0.006 0.018" repeatCount="indefinite"/>
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="6.5" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="wave-aurora" x="-10%" y="-40%" width="120%" height="300%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.007 0.019" numOctaves="1" seed="2" result="n">
+          <animate attributeName="baseFrequency" dur="10s" values="0.007 0.019;0.011 0.025;0.007 0.019" repeatCount="indefinite"/>
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
   <div class="stage" id="stage">
     <div class="card" id="card">
+      <div class="body" id="glassBody"><div class="fx"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="snow"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="lights"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div></div>
       <div class="avatar" id="avatar"></div>
       <div class="text">
         <div class="name" id="name"></div>
@@ -248,8 +551,9 @@
   let exiting = false;
   let hovering = false;
 
-  const STYLES = ['bounce', 'slide', 'pop', 'fade'];
+  const STYLES = ['bounce', 'slide', 'pop', 'fade', 'grow'];
   const FROMS = ['top', 'bottom', 'left', 'right'];
+  const GLASSES = ['classic', 'liquid', 'bubble', 'aurora', 'christmas'];
   const POSITIONS = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'];
 
   function initial(n) { return (n || '?').trim().charAt(0).toUpperCase(); }
@@ -308,6 +612,12 @@
       ? { top: '50% 0', bottom: '50% 100%', left: '0 50%', right: '100% 50%' }[from]
       : '50% 50%';
     card.dataset.style = style;
+    // Glass look. Restart the inner animations so the shine begins as the card lands.
+    const glassBody = document.getElementById('glassBody');
+    glassBody.style.display = 'none';
+    card.dataset.glass = GLASSES.includes(l.glass) ? l.glass : 'classic';
+    void card.offsetWidth;
+    glassBody.style.display = '';
     card.dataset.axis = (from === 'top' || from === 'bottom') ? 'v' : 'h';
     return style;
   }
@@ -365,7 +675,7 @@
         a.volume = sound.volume;
         a.play().catch((e) => console.error('Sound failed:', e));
       } else {
-        const lead = { bounce: 0.33, slide: 0.18, pop: 0.08, fade: 0 }[style] ?? 0;
+        const lead = { bounce: 0.33, slide: 0.18, pop: 0.08, fade: 0, grow: 0.2 }[style] ?? 0;
         playChime(sound.volume, lead);
       }
     } catch (e) { console.error('Sound failed:', e); }
@@ -398,6 +708,7 @@
   });
 
   card.addEventListener('animationend', (e) => {
+    if (e.target !== card) return; // ignore the avatar/text animations bubbling up
     if (e.animationName.includes('-out') && current) window.notifier.done(current.id);
   });
 
